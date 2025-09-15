@@ -1,0 +1,6 @@
+﻿"nama","ktp","jenis_kelamin","penghasilan","plafond","cif"
+"John Doe","1234567890123456","Laki-laki","5000000","10000000","CIF001"
+"Jane Smith","2345678901234567","Perempuan","4500000","9000000","CIF002"
+"Bob Johnson","3456789012345678","Laki-laki","6000000","12000000","CIF003"
+"Alice Brown","4567890123456789","Perempuan","5500000","11000000","CIF004"
+"Charlie Wilson","5678901234567890","Laki-laki","4000000","8000000","CIF005"

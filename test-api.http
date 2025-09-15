@@ -1,0 +1,25 @@
+# Test Login API
+POST http://localhost:3002/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin123"
+}
+
+###
+
+# Test Health Check
+GET http://localhost:3002/api/health
+
+###
+
+# Test Profile (Replace TOKEN with actual JWT from login response)
+GET http://localhost:3002/api/auth/profile
+Authorization: Bearer TOKEN_HERE
+
+###
+
+# Test Disbursement List (Replace TOKEN with actual JWT from login response)
+GET http://localhost:3002/api/disbursement
+Authorization: Bearer TOKEN_HERE

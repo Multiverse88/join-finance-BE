@@ -1,0 +1,5 @@
+﻿account_number,account_name,amount,bank_name,description
+1234567890,John Doe,100000,BCA,Salary Payment
+0987654321,Jane Smith,50000,Mandiri,Bonus Payment
+1122334455,Bob Johnson,75000,BRI,Commission
+5566778899,Alice Brown,120000,CIMB,Overtime Payment
