@@ -10,13 +10,11 @@ const authRoutes = require('./routes/auth');
 const disbursementRoutes = require('./routes/disbursement');
 
 // Import database initialization
-const { initializeDatabase } = require('./config/database');
+const { testConnection } = require('./config/database');
+const { initializeTables } = require('./models/database');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
-
-// Initialize database
-initializeDatabase();
 
 // Security middleware
 app.use(helmet());
@@ -87,12 +85,29 @@ app.use((req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Join Finance Backend API running on port ${PORT}`);
-  console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🌐 CORS Origin: ${process.env.CORS_ORIGIN || 'http://localhost:3000'}`);
-  console.log(`📝 API Documentation: http://localhost:${PORT}`);
-});
+// Initialize database connection and start server
+async function startServer() {
+  try {
+    // Test database connection
+    const connected = await testConnection();
+    if (connected) {
+      // Initialize tables
+      await initializeTables();
+    }
+    
+    // Start server
+    app.listen(PORT, () => {
+      console.log(`🚀 Join Finance Backend API running on port ${PORT}`);
+      console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🌐 CORS Origin: ${process.env.CORS_ORIGIN || 'http://localhost:3000'}`);
+      console.log(`📝 API Documentation: http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 module.exports = app;

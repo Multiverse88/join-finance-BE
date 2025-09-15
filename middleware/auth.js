@@ -1,5 +1,5 @@
 const { verifyToken, getTokenFromHeader } = require('../config/jwt');
-const { getDB } = require('../config/database');
+const { dbOperations } = require('../models/database');
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -37,33 +37,28 @@ const authenticateToken = (req, res, next) => {
 };
 
 // Authorization middleware (check if user exists in database)
-const authorizeUser = (req, res, next) => {
-  const db = getDB();
-  const userId = req.user.id;
-  
-  db.get(
-    'SELECT * FROM users WHERE id = ? AND is_active = 1',
-    [userId],
-    (err, user) => {
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Database error'
-        });
-      }
-      
-      if (!user) {
-        return res.status(403).json({
-          success: false,
-          message: 'User not found or inactive'
-        });
-      }
-      
-      req.currentUser = user;
-      next();
+const authorizeUser = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    
+    const user = await dbOperations.getUserById(userId);
+    
+    if (!user || !user.is_active) {
+      return res.status(403).json({
+        success: false,
+        message: 'User not found or inactive'
+      });
     }
-  );
+    
+    req.currentUser = user;
+    next();
+  } catch (error) {
+    console.error('Database error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Database error'
+    });
+  }
 };
 
 // Role-based authorization

@@ -1,0 +1,217 @@
+const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
+
+// NeonDB Connection configuration
+const connectionString = process.env.DATABASE_URL || 'postgresql://username:password@host:port/database';
+
+const pool = new Pool({
+  connectionString: connectionString,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
+
+// Database connection functions
+const getDB = () => {
+  return pool;
+};
+
+// Test connection
+const testConnection = async () => {
+  try {
+    const client = await pool.connect();
+    await client.query('SELECT NOW()');
+    client.release();
+    console.log('📗 Connected to NeonDB PostgreSQL database');
+    return true;
+  } catch (err) {
+    console.error('❌ Error connecting to database:', err.message);
+    return false;
+  }
+};
+
+// Initialize database with tables
+const initializeDatabase = async () => {
+  try {
+    const database = getDB();
+    
+    // Test connection first
+    const isConnected = await testConnection();
+    if (!isConnected) {
+      throw new Error('Cannot connect to database');
+    }
+    
+    // Create users table with all profile fields
+    await database.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        nrp VARCHAR(20),
+        nama VARCHAR(100) NOT NULL,
+        nip VARCHAR(20),
+        userId VARCHAR(50) UNIQUE NOT NULL,
+        kodeCabang VARCHAR(10),
+        namaCabang VARCHAR(100),
+        kodeInduk VARCHAR(10),
+        namaInduk VARCHAR(100),
+        kodeKanwil VARCHAR(10),
+        namaKanwil VARCHAR(100),
+        jabatan VARCHAR(200),
+        email VARCHAR(100),
+        idFungsi VARCHAR(20),
+        namaFungsi VARCHAR(100),
+        kodePenempatan VARCHAR(10),
+        namaPenempatan VARCHAR(100),
+        costCentre VARCHAR(20),
+        isApproval BOOLEAN DEFAULT false,
+        kodeUnitKerja VARCHAR(10),
+        namaUnitKerja VARCHAR(100),
+        kodeJabatan VARCHAR(20),
+        password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(20) DEFAULT 'user',
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    console.log('✅ Users table ready');
+  
+  // Create disbursements table
+  database.run(`
+    CREATE TABLE IF NOT EXISTS disbursements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      file_name VARCHAR(255) NOT NULL,
+      file_path VARCHAR(500) NOT NULL,
+      file_size INTEGER NOT NULL,
+      uploaded_by INTEGER NOT NULL,
+      status VARCHAR(20) DEFAULT 'pending',
+      total_records INTEGER DEFAULT 0,
+      processed_records INTEGER DEFAULT 0,
+      error_records INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (uploaded_by) REFERENCES users (id)
+    )
+  `, (err) => {
+    if (err) {
+      console.error('Error creating disbursements table:', err.message);
+    } else {
+      console.log('✅ Disbursements table ready');
+    }
+  });
+  
+  // Create disbursement_records table (untuk data dari excel)
+  database.run(`
+    CREATE TABLE IF NOT EXISTS disbursement_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      disbursement_id INTEGER NOT NULL,
+      account_number VARCHAR(50),
+      account_name VARCHAR(100),
+      amount DECIMAL(15,2),
+      bank_code VARCHAR(10),
+      bank_name VARCHAR(50),
+      reference_number VARCHAR(100),
+      description TEXT,
+      status VARCHAR(20) DEFAULT 'pending',
+      error_message TEXT,
+      processed_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (disbursement_id) REFERENCES disbursements (id)
+    )
+  `, (err) => {
+    if (err) {
+      console.error('Error creating disbursement_records table:', err.message);
+    } else {
+      console.log('✅ Disbursement records table ready');
+    }
+  });
+  
+  // Insert default users if not exist
+  const bcrypt = require('bcryptjs');
+  
+  // Create ADMINDGB user (main user)
+  database.get('SELECT id FROM users WHERE userId = ?', ['ADMINDGB'], (err, row) => {
+    if (err) {
+      console.error('Error checking ADMINDGB user:', err.message);
+      return;
+    }
+    
+    if (!row) {
+      const userProfile = {
+        nrp: "84177",
+        nama: "AMMAR RAMADHAN",
+        nip: "24.00.0125",
+        userId: "ADMINDGB",
+        kodeCabang: "0000",
+        namaCabang: "DIVISI INFORMATION TECHNOLOGY",
+        kodeInduk: "D440",
+        namaInduk: "DIVISI INFORMATION TECHNOLOGY",
+        kodeKanwil: "0000",
+        namaKanwil: "Kantor Pusat",
+        jabatan: "Staf Development Team Digital Business",
+        email: "test@BANKBJB.CO.ID",
+        idFungsi: "4861",
+        namaFungsi: "Admin IT",
+        kodePenempatan: "D440",
+        namaPenempatan: "DIVISI INFORMATION TECHNOLOGY",
+        costCentre: "01300",
+        isApproval: false,
+        kodeUnitKerja: "D440",
+        namaUnitKerja: "DIVISI INFORMATION TECHNOLOGY",
+        kodeJabatan: "J2337"
+      };
+      
+      const password = 'bebas123';
+      bcrypt.hash(password, 10, (err, hash) => {
+        if (err) {
+          console.error('Error hashing ADMINDGB password:', err.message);
+          return;
+        }
+        
+        database.run(`
+          INSERT INTO users (
+            nrp, nama, nip, userId, kodeCabang, namaCabang, kodeInduk, namaInduk,
+            kodeKanwil, namaKanwil, jabatan, email, idFungsi, namaFungsi,
+            kodePenempatan, namaPenempatan, costCentre, isApproval,
+            kodeUnitKerja, namaUnitKerja, kodeJabatan, password_hash, role, is_active
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          userProfile.nrp, userProfile.nama, userProfile.nip, userProfile.userId,
+          userProfile.kodeCabang, userProfile.namaCabang, userProfile.kodeInduk,
+          userProfile.namaInduk, userProfile.kodeKanwil, userProfile.namaKanwil,
+          userProfile.jabatan, userProfile.email, userProfile.idFungsi,
+          userProfile.namaFungsi, userProfile.kodePenempatan, userProfile.namaPenempatan,
+          userProfile.costCentre, userProfile.isApproval ? 1 : 0,
+          userProfile.kodeUnitKerja, userProfile.namaUnitKerja, userProfile.kodeJabatan,
+          hash, 'admin', 1
+        ], (err) => {
+          if (err) {
+            console.error('Error creating ADMINDGB user:', err.message);
+          } else {
+            console.log('👤 ADMINDGB user created (username: ADMINDGB, password: bebas123)');
+          }
+        });
+      });
+    }
+  });
+};
+
+// Close database connection
+const closeDB = () => {
+  if (db) {
+    db.close((err) => {
+      if (err) {
+        console.error('Error closing database:', err.message);
+      } else {
+        console.log('Database connection closed');
+      }
+    });
+  }
+};
+
+module.exports = {
+  getDB,
+  initializeDatabase,
+  closeDB
+};

@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
-const { getDB } = require('../config/database');
+const { dbOperations } = require('../models/database');
 const { generateToken } = require('../config/jwt');
 
 // Validation schemas
@@ -23,96 +23,64 @@ const login = async (req, res) => {
     }
     
     const { username, password } = value;
-    const db = getDB();
     
-    // Find user by userId (username field)
-    db.get(
-      'SELECT * FROM users WHERE userId = ?',
-      [username],
-      async (err, user) => {
-        if (err) {
-          console.error('Database error:', err);
-          return res.status(500).json({
-            success: false,
-            message: 'Database error'
-          });
+    // Find user with profile data by username
+    const user = await dbOperations.getUserWithProfile(username);
+    
+    if (!user || !user.is_active) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid username or password'
+      });
+    }
+    
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid username or password'
+      });
+    }
+    
+    // Generate JWT token
+    const token = generateToken({
+      id: user.id,
+      username: user.username
+    });
+    
+    // Return success response with complete BJB profile structure
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        token,
+        profile: {
+          nrp: user.nrp || user.id.toString().padStart(5, '0'),
+          nama: user.nama || user.full_name,
+          nip: user.nip || '24.00.0125',
+          userId: user.username,
+          kodeCabang: user.kode_cabang || '0000',
+          namaCabang: user.nama_cabang || 'DIVISI INFORMATION TECHNOLOGY',
+          kodeInduk: user.kode_induk || 'D440',
+          namaInduk: user.nama_induk || 'DIVISI INFORMATION TECHNOLOGY',
+          kodeKanwil: user.kode_kanwil || '0000',
+          namaKanwil: user.nama_kanwil || 'Kantor Pusat',
+          jabatan: user.jabatan || 'Staff',
+          email: user.email,
+          idFungsi: user.id_fungsi || '4861',
+          namaFungsi: user.nama_fungsi || 'Admin IT',
+          kodePenempatan: user.kode_penempatan || 'D440',
+          namaPenempatan: user.nama_penempatan || 'DIVISI INFORMATION TECHNOLOGY',
+          id: user.id.toString(),
+          costCentre: user.cost_centre || '01300',
+          isApproval: user.is_approval || false,
+          kodeUnitKerja: user.kode_unit_kerja || 'D440',
+          namaUnitKerja: user.nama_unit_kerja || 'DIVISI INFORMATION TECHNOLOGY',
+          kodeJabatan: user.kode_jabatan || 'J2337'
         }
-        
-        if (!user) {
-          return res.status(401).json({
-            success: false,
-            message: 'Invalid username or password'
-          });
-        }
-        
-        if (!user.is_active) {
-          return res.status(401).json({
-            success: false,
-            message: 'Account is inactive'
-          });
-        }
-        
-        // Verify password
-        const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-        if (!isPasswordValid) {
-          return res.status(401).json({
-            success: false,
-            message: 'Invalid username or password'
-          });
-        }
-        
-        // Generate JWT token
-        const token = generateToken({
-          id: user.id,
-          userId: user.userId,
-          role: user.role
-        });
-        
-        // Update last login (optional)
-        db.run(
-          'UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-          [user.id],
-          (err) => {
-            if (err) {
-              console.error('Error updating last login:', err);
-            }
-          }
-        );
-        
-        // Return success response with complete profile
-        res.json({
-          success: true,
-          message: 'Login successful',
-          data: {
-            token,
-            profile: {
-              nrp: user.nrp,
-              nama: user.nama,
-              nip: user.nip,
-              userId: user.userId,
-              kodeCabang: user.kodeCabang,
-              namaCabang: user.namaCabang,
-              kodeInduk: user.kodeInduk,
-              namaInduk: user.namaInduk,
-              kodeKanwil: user.kodeKanwil,
-              namaKanwil: user.namaKanwil,
-              jabatan: user.jabatan,
-              email: user.email,
-              idFungsi: user.idFungsi,
-              namaFungsi: user.namaFungsi,
-              kodePenempatan: user.kodePenempatan,
-              namaPenempatan: user.namaPenempatan,
-              id: user.id.toString(),
-              costCentre: user.costCentre,
-              isApproval: user.isApproval === 1,
-              kodeUnitKerja: user.kodeUnitKerja,
-              namaUnitKerja: user.namaUnitKerja,
-              kodeJabatan: user.kodeJabatan
-            }
-          }
-        });
       }
-    );
+    });
     
   } catch (error) {
     console.error('Login error:', error);
@@ -161,69 +129,49 @@ const getProfile = (req, res) => {
 // Auth Me - Get current user profile from token
 const authMe = async (req, res) => {
   try {
-    const db = getDB();
-    const userId = req.user.id; // Dari token yang di-decode di middleware
+    const userId = req.user.id; // From decoded token in middleware
     
-    // Get complete user profile from database
-    db.get(
-      'SELECT * FROM users WHERE id = ?',
-      [userId],
-      (err, user) => {
-        if (err) {
-          console.error('Database error:', err);
-          return res.status(500).json({
-            success: false,
-            message: 'Database error'
-          });
+    // Get complete user with profile from database
+    const user = await dbOperations.getUserWithProfileById(userId);
+    
+    if (!user || !user.is_active) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found or inactive'
+      });
+    }
+    
+    // Return complete profile (same format as login response)
+    res.json({
+      success: true,
+      message: 'Profile retrieved successfully',
+      data: {
+        profile: {
+          nrp: user.nrp || user.id.toString().padStart(5, '0'),
+          nama: user.nama || user.full_name,
+          nip: user.nip || '24.00.0125',
+          userId: user.username,
+          kodeCabang: user.kode_cabang || '0000',
+          namaCabang: user.nama_cabang || 'DIVISI INFORMATION TECHNOLOGY',
+          kodeInduk: user.kode_induk || 'D440',
+          namaInduk: user.nama_induk || 'DIVISI INFORMATION TECHNOLOGY',
+          kodeKanwil: user.kode_kanwil || '0000',
+          namaKanwil: user.nama_kanwil || 'Kantor Pusat',
+          jabatan: user.jabatan || 'Staff',
+          email: user.email,
+          idFungsi: user.id_fungsi || '4861',
+          namaFungsi: user.nama_fungsi || 'Admin IT',
+          kodePenempatan: user.kode_penempatan || 'D440',
+          namaPenempatan: user.nama_penempatan || 'DIVISI INFORMATION TECHNOLOGY',
+          id: user.id.toString(),
+          costCentre: user.cost_centre || '01300',
+          isApproval: user.is_approval || false,
+          kodeUnitKerja: user.kode_unit_kerja || 'D440',
+          namaUnitKerja: user.nama_unit_kerja || 'DIVISI INFORMATION TECHNOLOGY',
+          kodeJabatan: user.kode_jabatan || 'J2337'
         }
-        
-        if (!user) {
-          return res.status(404).json({
-            success: false,
-            message: 'User not found'
-          });
-        }
-        
-        if (!user.is_active) {
-          return res.status(401).json({
-            success: false,
-            message: 'Account is inactive'
-          });
-        }
-        
-        // Return complete profile (same format as login response)
-        res.json({
-          success: true,
-          message: 'Profile retrieved successfully',
-          data: {
-            profile: {
-              nrp: user.nrp,
-              nama: user.nama,
-              nip: user.nip,
-              userId: user.userId,
-              kodeCabang: user.kodeCabang,
-              namaCabang: user.namaCabang,
-              kodeInduk: user.kodeInduk,
-              namaInduk: user.namaInduk,
-              kodeKanwil: user.kodeKanwil,
-              namaKanwil: user.namaKanwil,
-              jabatan: user.jabatan,
-              email: user.email,
-              idFungsi: user.idFungsi,
-              namaFungsi: user.namaFungsi,
-              kodePenempatan: user.kodePenempatan,
-              namaPenempatan: user.namaPenempatan,
-              id: user.id.toString(),
-              costCentre: user.costCentre,
-              isApproval: user.isApproval === 1,
-              kodeUnitKerja: user.kodeUnitKerja,
-              namaUnitKerja: user.namaUnitKerja,
-              kodeJabatan: user.kodeJabatan
-            }
-          }
-        });
       }
-    );
+    });
     
   } catch (error) {
     console.error('AuthMe error:', error);
