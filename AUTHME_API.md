@@ -1,6 +1,7 @@
 # AuthMe API Documentation
 
 ## Overview
+
 The AuthMe feature allows users to fetch their complete profile information using their JWT token obtained during login. This provides a way to retrieve current user data without requiring username/password again.
 
 ## Endpoint
@@ -10,17 +11,20 @@ The AuthMe feature allows users to fetch their complete profile information usin
 Retrieves the current user's complete profile information using JWT token authentication.
 
 #### Headers
+
 ```
 Authorization: Bearer <jwt_token>
 Content-Type: application/json
 ```
 
 #### Request
+
 No request body required. Authentication is done via JWT token in Authorization header.
 
 #### Response
 
 **Success Response (200)**
+
 ```json
 {
   "success": true,
@@ -57,6 +61,7 @@ No request body required. Authentication is done via JWT token in Authorization 
 **Error Responses**
 
 **401 Unauthorized - Missing Token**
+
 ```json
 {
   "success": false,
@@ -65,6 +70,7 @@ No request body required. Authentication is done via JWT token in Authorization 
 ```
 
 **401 Unauthorized - Invalid Token**
+
 ```json
 {
   "success": false,
@@ -73,6 +79,7 @@ No request body required. Authentication is done via JWT token in Authorization 
 ```
 
 **401 Unauthorized - Inactive Account**
+
 ```json
 {
   "success": false,
@@ -81,6 +88,7 @@ No request body required. Authentication is done via JWT token in Authorization 
 ```
 
 **404 Not Found - User Not Found**
+
 ```json
 {
   "success": false,
@@ -89,6 +97,7 @@ No request body required. Authentication is done via JWT token in Authorization 
 ```
 
 **500 Internal Server Error**
+
 ```json
 {
   "success": false,
@@ -99,24 +108,26 @@ No request body required. Authentication is done via JWT token in Authorization 
 ## Usage Examples
 
 ### JavaScript/Axios
+
 ```javascript
-const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
 
 try {
-  const response = await axios.get('http://localhost:3002/api/auth/authme', {
+  const response = await axios.get("http://localhost:3002/api/auth/authme", {
     headers: {
-      'Authorization': `Bearer ${token}`
-    }
+      Authorization: `Bearer ${token}`,
+    },
   });
-  
+
   const userProfile = response.data.data.profile;
-  console.log('User Profile:', userProfile);
+  console.log("User Profile:", userProfile);
 } catch (error) {
-  console.error('Error:', error.response.data);
+  console.error("Error:", error.response.data);
 }
 ```
 
 ### cURL
+
 ```bash
 curl -X GET "http://localhost:3002/api/auth/authme" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
@@ -124,46 +135,49 @@ curl -X GET "http://localhost:3002/api/auth/authme" \
 ```
 
 ### Fetch API
-```javascript
-const token = localStorage.getItem('authToken');
 
-fetch('http://localhost:3002/api/auth/authme', {
-  method: 'GET',
+```javascript
+const token = localStorage.getItem("authToken");
+
+fetch("http://localhost:3002/api/auth/authme", {
+  method: "GET",
   headers: {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-  }
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  },
 })
-.then(response => response.json())
-.then(data => {
-  if (data.success) {
-    console.log('Profile:', data.data.profile);
-  } else {
-    console.error('Error:', data.message);
-  }
-});
+  .then((response) => response.json())
+  .then((data) => {
+    if (data.success) {
+      console.log("Profile:", data.data.profile);
+    } else {
+      console.error("Error:", data.message);
+    }
+  });
 ```
 
 ## Typical Usage Flow
 
 1. **Login** to get JWT token:
+
    ```javascript
-   const loginResponse = await axios.post('/api/auth/login', {
-     username: 'ADMINDGB',
-     password: '84177123'
+   const loginResponse = await axios.post("/api/auth/login", {
+     username: "ADMINDGB",
+     password: "84177123",
    });
    const token = loginResponse.data.data.token;
    ```
 
 2. **Store token** (localStorage, sessionStorage, or secure cookie):
+
    ```javascript
-   localStorage.setItem('authToken', token);
+   localStorage.setItem("authToken", token);
    ```
 
 3. **Use AuthMe** to get current user profile:
    ```javascript
-   const authMeResponse = await axios.get('/api/auth/authme', {
-     headers: { 'Authorization': `Bearer ${token}` }
+   const authMeResponse = await axios.get("/api/auth/authme", {
+     headers: { Authorization: `Bearer ${token}` },
    });
    const profile = authMeResponse.data.data.profile;
    ```
@@ -186,11 +200,13 @@ Currently, no rate limiting is implemented, but it's recommended to implement re
 ## Testing
 
 Use the provided test script to verify AuthMe functionality:
+
 ```bash
 node test_authme.js
 ```
 
 The test covers:
+
 - Successful profile retrieval
 - Profile data consistency with login
 - Multiple consecutive calls
