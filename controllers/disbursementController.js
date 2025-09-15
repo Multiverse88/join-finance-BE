@@ -67,6 +67,16 @@ const uploadExcel = async (req, res) => {
     // Update disbursement status to processed
     await dbOperations.updateDisbursementStatus(disbursement.id, 'processed');
 
+    // Clean up uploaded file (important for serverless environments)
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log('Temporary file cleaned up:', filePath);
+      }
+    } catch (cleanupError) {
+      console.warn('Failed to clean up temporary file:', cleanupError.message);
+    }
+
     res.json({
       success: true,
       message: 'File uploaded and processed successfully',
@@ -82,6 +92,17 @@ const uploadExcel = async (req, res) => {
 
   } catch (error) {
     console.error('Upload error:', error);
+    
+    // Clean up uploaded file in case of error
+    try {
+      if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+        console.log('Temporary file cleaned up after error:', req.file.path);
+      }
+    } catch (cleanupError) {
+      console.warn('Failed to clean up temporary file after error:', cleanupError.message);
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Error processing file',

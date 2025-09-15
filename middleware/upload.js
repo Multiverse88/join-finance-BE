@@ -3,20 +3,32 @@ const path = require('path');
 const fs = require('fs');
 
 // Ensure upload directory exists
-const uploadDir = process.env.UPLOAD_PATH || './uploads';
-if (!fs.existsSync(uploadDir)) {
+// Use /tmp in production (Vercel) for temporary file storage
+const uploadDir = process.env.NODE_ENV === 'production' ? '/tmp' : (process.env.UPLOAD_PATH || './uploads');
+
+// Only create directory in development
+if (process.env.NODE_ENV !== 'production' && !fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 // Configure multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    // Create subdirectory based on current date
-    const dateDir = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const fullPath = path.join(uploadDir, 'disbursements', dateDir);
+    let fullPath;
     
-    // Ensure directory exists
-    fs.mkdirSync(fullPath, { recursive: true });
+    if (process.env.NODE_ENV === 'production') {
+      // In production (Vercel), use /tmp directory directly
+      fullPath = uploadDir;
+    } else {
+      // In development, create subdirectory based on current date
+      const dateDir = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      fullPath = path.join(uploadDir, 'disbursements', dateDir);
+      
+      // Ensure directory exists in development
+      if (!fs.existsSync(fullPath)) {
+        fs.mkdirSync(fullPath, { recursive: true });
+      }
+    }
     
     cb(null, fullPath);
   },
@@ -61,7 +73,7 @@ const upload = multer({
 });
 
 // Middleware for single file upload
-const uploadExcel = upload.single('file');
+const uploadExcel = upload.single('excel');
 
 // Error handling wrapper
 const handleUploadErrors = (req, res, next) => {
@@ -103,5 +115,6 @@ const handleUploadErrors = (req, res, next) => {
 };
 
 module.exports = {
+  upload,
   uploadExcel: handleUploadErrors
 };
